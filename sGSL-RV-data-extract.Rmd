@@ -1,0 +1,181 @@
+---
+title: "Notes on dataset for Elise Collett, St.FX"
+author: "Daniel Ricard"
+date: '`r paste0("Last modified: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))`'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gulf)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(worms)
+```
+
+```{r, include=FALSE}
+taxo.tree.fct <- function(aphia.id, species.code){
+my.df <- wormsbyid(aphia.id)
+
+## what taxonomic rank are we dealing with?
+if(my.df$rank=="Subspecies"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Species"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Subgenus"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Genus"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Superfamily"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Family"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Infraorder"){
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Order"){
+  my.df$family<-NA
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Class"){
+  my.df$family<-NA
+  my.df$order<-NA
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Subphylum"){
+  my.df$family<-NA
+  my.df$order<-NA
+  my.df$class<-NA
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+if(my.df$rank=="Phylum"){
+  my.df$family<-NA
+  my.df$order<-NA
+  my.df$class<-NA
+  vars <- c("kingdom","phylum","class","order","family","scientificname")
+  return(cbind(species.code, my.df[,vars]))
+}
+
+
+}## end function
+
+
+```
+## Collaboration with St. FX
+
+### Species considered
+To get things started, I am generating a dataset similar to that used by Benoit and Swain (2008). Table A1 in Benoit & Swain shows 52 species. Let's try and reproduce that table by using the correct species codes in the RV database.
+
+```{r species1, cache=TRUE, include=FALSE}
+sp.codes <- c(241, 201, 204, 202, 220, 221, 712, 62, 
+              60, 110, 10, 118, 11, 16, 410, 14, 114, 
+              112, 12, 361, 64, 63, 610, 50, 122, 623, 
+              622, 624, 616, 598, 646, 640, 41, 40, 
+              30, 42, 43, 31, 143, 340, 350, 880, 314, 
+              300, 316, 301, 304, 501, 503, 320, 307, 23)
+
+## species that need to be summed over a number of species codes
+## Seasnails, Liparis species
+## Alligatorfishes, 2 species
+## Hookear sculpins
+
+
+## add additional taxonomic information from WoRMS
+## Class - Order - Family, to follow Table A1 in Benoit & Swain
+
+
+for.table <- 
+  merge(
+  merge(
+  merge(
+    data.frame(
+  num=1:length(sp.codes),
+  species.code=sp.codes
+  ),
+  species.str(sp.codes, "latin", as.data.frame=TRUE),
+  by.x="species.code", by.y="CODE"),
+  species.str(sp.codes, "english", as.data.frame=TRUE),
+  by.x="species.code", by.y="CODE"),
+  species.code(sp.codes, input.coding="RV", output.coding="worms", as.data.frame=TRUE),
+  by.x="species.code", by.y="rv_code")
+
+
+taxo.list.out <- lapply(1:length(sp.codes), function(ss){
+  aa1<-for.table[ss,"aphia_id"];
+  aa2<-for.table[ss,"species.code"];
+  taxo.tree.fct(aa1,aa2)})
+
+taxo.t <- do.call(rbind, taxo.list.out)
+
+taxo.df.out <- merge(for.table, taxo.t, by="species.code")
+
+taxo.df.out$aphia.url <- paste("http://www.marinespecies.org/aphia.php?p=taxdetails&id=", taxo.df.out$aphia_id, sep="")
+
+
+vars <- c("class","order","family","LATIN","ENGLISH","aphia_id")
+o1 <- order(taxo.df.out$num)
+urls <- taxo.df.out$aphia.url[o1]
+
+## manually add Class Actinopteri to sea raven
+taxo.df.out[taxo.df.out$LATIN=="Hemitripterus americanus","class"] <- "Actinopteri"
+```
+
+
+```{r species2, results='asis', echo=FALSE}
+kable(taxo.df.out[o1,vars], row.names=FALSE, longtable=TRUE, caption="The 52 species of interest, meant to match Table A1 in Benoit and Swain.") %>% 
+  collapse_rows(columns=1:3, row_group_label_position = "stack", latex_hline="major") 
+  ```
+
+### Dataset of abundance per tow
+Now extract set cards and catch cards for representative sets in strata 415 to 439, and compute the yearly stratified random estimate of abundance per tow, corrected for gear, vessel and diurnal effects.
+
+
+```{r}
+data(rv)
+
+yrs <- 1971:2020
+x <- rv.good.sets(yrs)
+x <- x[x$stratum %in% c(415:439),]
+x$unique.id <- paste(x$vessel.code, x$year, x$cruise.number, x$set.number, sep="-")
+
+y <- rv$cat
+y$unique.id <- paste(y$vessel.code, y$year, y$cruise.number, y$set.number, sep="-")
+y <- y[y$unique.id %in% x$unique.id & y$species %in% sp.codes,]
+y<-adjust(y,x)
+
+## output matrix, called C in Benoit & Swain
+C.matrix <- matrix(NA, nr=length(sp.codes), nc=length(yrs), dimnames=list(species=sp.codes, year=yrs))
+
+
+for(i in 1:length(sp.codes)){
+  s <- sp.codes[i]
+  this.y <- y[y$species==s,]
+  z <- merge.catch(x,this.y)
+stratified.number.df <- smean(z, "number.caught", by=c("year"))
+matrix.row <- (stratified.number.df$mean - min(stratified.number.df$mean)) / (max(stratified.number.df$mean) - min(stratified.number.df$mean))
+C.matrix[i,] <- matrix.row
+}
+
+image(t(C.matrix))
+
+```
+
+### Tow-level dataset
+

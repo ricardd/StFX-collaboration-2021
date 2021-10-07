@@ -1,7 +1,7 @@
 ---
-title: "Notes on dataset for Elise Collett, St.FX"
+title: "Notes on assembling the dataset for Elise Collett, student at St.FX"
 author: "Daniel Ricard"
-date: '`r paste0("Last modified: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))`'
+date: '`r paste0("Last modified: ", Sys.time())`'
 output: pdf_document
 ---
 
@@ -11,6 +11,7 @@ library(gulf)
 library(knitr)
 library(kableExtra)
 library(dplyr)
+library(ggplot2)
 library(worms)
 ```
 
@@ -81,7 +82,7 @@ if(my.df$rank=="Phylum"){
 ## Collaboration with St. FX
 
 ### Species considered
-To get things started, I am generating a dataset similar to that used by Benoit and Swain (2008). Table A1 in Benoit & Swain shows 52 species. Let's try and reproduce that table by using the correct species codes in the RV database.
+To get things started, I am generating a dataset similar to that used by Benoit and Swain (2008). Table A1 shows 52 species. Let's try and reproduce that table by using the correct species codes in the RV database.
 
 ```{r species1, cache=TRUE, include=FALSE}
 sp.codes <- c(241, 201, 204, 202, 220, 221, 712, 62, 
@@ -91,16 +92,8 @@ sp.codes <- c(241, 201, 204, 202, 220, 221, 712, 62,
               30, 42, 43, 31, 143, 340, 350, 880, 314, 
               300, 316, 301, 304, 501, 503, 320, 307, 23)
 
-## species that need to be summed over a number of species codes
-## Seasnails, Liparis species
-## Alligatorfishes, 2 species
-## Hookear sculpins
-
-
 ## add additional taxonomic information from WoRMS
 ## Class - Order - Family, to follow Table A1 in Benoit & Swain
-
-
 for.table <- 
   merge(
   merge(
@@ -126,28 +119,61 @@ taxo.t <- do.call(rbind, taxo.list.out)
 
 taxo.df.out <- merge(for.table, taxo.t, by="species.code")
 
-taxo.df.out$aphia.url <- paste("http://www.marinespecies.org/aphia.php?p=taxdetails&id=", taxo.df.out$aphia_id, sep="")
+taxo.df.out$species.code <- as.character(taxo.df.out$species.code)
 
+## species that need to be summed over a number of species codes
+## Seasnails, Liparis species, species codes 503, 504, 505, 506, 
+## Alligatorfishes, 2 species
+## Hookear sculpins, 2 species
 
-vars <- c("class","order","family","LATIN","ENGLISH","aphia_id")
-o1 <- order(taxo.df.out$num)
-urls <- taxo.df.out$aphia.url[o1]
+## manually fix Liparis species
+taxo.df.out[taxo.df.out$species.code=="503","LATIN"] <- "Liparis sp."
+taxo.df.out[taxo.df.out$species.code=="503","ENGLISH"] <- "Seasnails"
+taxo.df.out[taxo.df.out$species.code=="503","aphia_id"] <- 126160
+taxo.df.out[taxo.df.out$species.code=="503","species.code"] <- "503, 504, 505, 506, 508, 512, 513"
+
+## manually fix alligatorfishes
+taxo.df.out[taxo.df.out$species.code=="340","LATIN"] <- "Aspidophoroides monopterygius, Aspidophoroides olrikii"
+taxo.df.out[taxo.df.out$species.code=="340","ENGLISH"] <- "Alligatorfishes"
+taxo.df.out[taxo.df.out$species.code=="340","aphia_id"] <- 159458
+taxo.df.out[taxo.df.out$species.code=="340","species.code"] <- "340, 341"
+
+## manually fix hookear scuplins
+taxo.df.out[taxo.df.out$species.code=="880","LATIN"] <- "Artediellus sp."
+taxo.df.out[taxo.df.out$species.code=="880","ENGLISH"] <- "Hookear sculpins"
+taxo.df.out[taxo.df.out$species.code=="880","aphia_id"] <- 126147
+taxo.df.out[taxo.df.out$species.code=="880","species.code"] <- "306, 880"
 
 ## manually add Class Actinopteri to sea raven
 taxo.df.out[taxo.df.out$LATIN=="Hemitripterus americanus","class"] <- "Actinopteri"
+
+
+
+taxo.df.out$aphia.url <- paste("http://www.marinespecies.org/aphia.php?p=taxdetails&id=", taxo.df.out$aphia_id, sep="")
+
+vars <- c("class","order","family","LATIN","ENGLISH","aphia_id","species.code")
+o1 <- order(taxo.df.out$num)
+urls <- taxo.df.out$aphia.url[o1]
+
+csv.fn1 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-species.csv")
+write.csv(taxo.df.out[o1,vars], file=csv.fn1)
+
 ```
 
 
 ```{r species2, results='asis', echo=FALSE}
 kable(taxo.df.out[o1,vars], row.names=FALSE, longtable=TRUE, caption="The 52 species of interest, meant to match Table A1 in Benoit and Swain.") %>% 
-  collapse_rows(columns=1:3, row_group_label_position = "stack", latex_hline="major") 
-  ```
+  column_spec(4, width="2.5cm") %>% 
+  column_spec(7, width="2.0cm") %>% 
+  collapse_rows(columns=1:3, row_group_label_position = "stack", latex_hline="major")
+
+```
 
 ### Dataset of abundance per tow
 Now extract set cards and catch cards for representative sets in strata 415 to 439, and compute the yearly stratified random estimate of abundance per tow, corrected for gear, vessel and diurnal effects.
 
 
-```{r}
+```{r computeCmatrix, cache=TRUE, results="hide", fig.width=6, fig.height=8}
 data(rv)
 
 yrs <- 1971:2020
@@ -157,25 +183,102 @@ x$unique.id <- paste(x$vessel.code, x$year, x$cruise.number, x$set.number, sep="
 
 y <- rv$cat
 y$unique.id <- paste(y$vessel.code, y$year, y$cruise.number, y$set.number, sep="-")
-y <- y[y$unique.id %in% x$unique.id & y$species %in% sp.codes,]
 y<-adjust(y,x)
 
 ## output matrix, called C in Benoit & Swain
 C.matrix <- matrix(NA, nr=length(sp.codes), nc=length(yrs), dimnames=list(species=sp.codes, year=yrs))
-
+C.df <- expand.grid(year=yrs, species=sp.codes, normalised=NA)
 
 for(i in 1:length(sp.codes)){
   s <- sp.codes[i]
-  this.y <- y[y$species==s,]
-  z <- merge.catch(x,this.y)
+  if(s==503) { # snailfishes
+    ss <- c(503, 504, 505, 506, 508, 512, 513)
+    this.y <- y[y$species %in% ss,]
+    ## sum for each set
+    agg.df <- aggregate(number.caught~unique.id, this.y, sum)
+    vars <- c("unique.id", key(x))
+    this.agg.y <- merge(x[,vars], agg.df, by="unique.id")
+    this.agg.y$species<-503
+    z <- merge.catch(x, rvcat(this.agg.y), var = "number.caught") #
+  }
+    if(s==340) { # alligatorfishes
+    ss <- c(340,341)
+    this.y <- y[y$species %in% ss,]
+    ## sum for each set
+    agg.df <- aggregate(number.caught~unique.id, this.y, sum)
+    vars <- c("unique.id", key(x))
+    this.agg.y <- merge(x[,vars], agg.df, by="unique.id")
+    this.agg.y$species<-340
+    z <- merge.catch(x, rvcat(this.agg.y), var = "number.caught")
+  }
+    if(s==880) { # hookear sculpins
+    ss <- c(306, 880)
+    this.y <- y[y$species %in% ss,]
+    ## sum for each set
+    agg.df <- aggregate(number.caught~unique.id, this.y, sum)
+    vars <- c("unique.id", key(x))
+    this.agg.y <- merge(x[,vars], agg.df, by="unique.id")
+    this.agg.y$species<-880
+    z <- merge.catch(x, rvcat(this.agg.y), var = "number.caught")
+  }
+  else{
+    this.y <- y[y$species==s,]
+    z <- merge.catch(x,this.y)
+  }
+  
 stratified.number.df <- smean(z, "number.caught", by=c("year"))
 matrix.row <- (stratified.number.df$mean - min(stratified.number.df$mean)) / (max(stratified.number.df$mean) - min(stratified.number.df$mean))
+
 C.matrix[i,] <- matrix.row
+
+C.df[C.df$species==s,"normalised"] <- matrix.row
 }
 
-image(t(C.matrix))
+# visualize C matrix using ggplot
+C.df$species.name <- species.str(C.df$species, "english")
+g <- ggplot(data=C.df,
+       aes(x=year, y=species.name, fill=normalised)) + geom_tile() + 
+       theme_bw() + scale_fill_gradient(low = "white", high = "black")
+g
 
 ```
 
 ### Tow-level dataset
 
+Also provide tow-level data for exploration purposes.
+
+```{r writeCSV}
+strat.stats <- stratum.info(region = "gulf", survey = "rv", stratum = 415:439)
+
+## write to CSV file
+csv.fn2 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-strata-stats.csv")
+keep.vars <- c("stratum","area","trawlable.units")
+write.csv(strat.stats[,keep.vars], file=csv.fn2)
+
+csv.fn3 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-sets.csv")
+x.keep.vars <- c("unique.id","year","month","day","vessel.code","cruise.number","gear","stratum","set.number","start.hour","start.minute","start.second","experiment","duration","longitude.start","latitude.start","longitude.end","latitude.end","depth.start","depth.end","distance","species.fish.number","species.invertebrate.number","catch.total.weight","surface.temperature","bottom.temperature","bottom.salinity")
+o.x <- order(x$year, x$set.number)
+write.csv(x[o.x,x.keep.vars], file=csv.fn3)
+
+
+csv.fn4 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-catch.csv")
+y.keep.vars <- c("unique.id", "species", "number.caught", "weight.caught")
+k.spec.keep <- c(strsplit(paste0(taxo.df.out$species.code, collapse="", sep=","), ",")[[1]])
+write.csv(y[y$species %in% k.spec.keep,y.keep.vars], file=csv.fn4)
+
+csv.fn5 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-C-matrix.csv")
+
+write.csv(C.matrix, file=csv.fn5)
+
+## create a backbone Excel file to copy and paste the CSV files into
+library(xlsx)
+xl.fn <- "sGSL-RV-data-for-Elise-2021-10-07.xlsx"
+t.df <- data.frame(x=1)
+write.xlsx(t.df, file=xl.fn, sheetName = "Species list")
+write.xlsx(t.df, file=xl.fn, sheetName = "Strata statisitics", append = TRUE, row.names=FALSE)
+write.xlsx(t.df, file=xl.fn, sheetName = "Sets", append = TRUE, row.names=FALSE)
+write.xlsx(t.df, file=xl.fn, sheetName = "Adjusted catch", append = TRUE, row.names=FALSE)
+write.xlsx(t.df, file=xl.fn, sheetName = "C matrix", append = TRUE, row.names=FALSE)
+```
+
+The xlsx package in R was giving a memory error when writing an Excel file, so I am outputting CSV files and assembling them in an Excel file manually instead.

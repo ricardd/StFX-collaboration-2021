@@ -144,6 +144,10 @@ taxo.df.out[taxo.df.out$species.code=="880","ENGLISH"] <- "Hookear sculpins"
 taxo.df.out[taxo.df.out$species.code=="880","aphia_id"] <- 126147
 taxo.df.out[taxo.df.out$species.code=="880","species.code"] <- "306, 880"
 
+## manually fix eelpout species
+taxo.df.out[taxo.df.out$species.code=="598","ENGLISH"] <- "Eelpouts"
+taxo.df.out[taxo.df.out$species.code=="598","species.code"] <- "598,619,620,627,628,641,642,643,647"
+
 ## manually add Class Actinopteri to sea raven
 taxo.df.out[taxo.df.out$LATIN=="Hemitripterus americanus","class"] <- "Actinopteri"
 
@@ -223,7 +227,17 @@ for(i in 1:length(sp.codes)){
     this.agg.y <- merge(x[,vars], agg.df, by="unique.id")
     this.agg.y$species<-880
     z <- merge.catch(x, rvcat(this.agg.y), var = "number.caught")
-  }
+    }
+  if(s==598) { # eelpouts
+    ss <- c(598,619,620,627,628,641,642,643,647)
+    this.y <- y[y$species %in% ss,]
+    ## sum for each set
+    agg.df <- aggregate(number.caught~unique.id, this.y, sum)
+    vars <- c("unique.id", key(x))
+    this.agg.y <- merge(x[,vars], agg.df, by="unique.id")
+    this.agg.y$species<-598
+    z <- merge.catch(x, rvcat(this.agg.y), var = "number.caught")
+    }
   else{
     this.y <- y[y$species==s,]
     z <- merge.catch(x,this.y)
@@ -285,6 +299,8 @@ write.xlsx(t.df, file=xl.fn, sheetName = "Strata statisitics", append = TRUE, ro
 write.xlsx(t.df, file=xl.fn, sheetName = "Sets", append = TRUE, row.names=FALSE)
 write.xlsx(t.df, file=xl.fn, sheetName = "Adjusted catch", append = TRUE, row.names=FALSE)
 write.xlsx(t.df, file=xl.fn, sheetName = "C matrix", append = TRUE, row.names=FALSE)
+write.xlsx(t.df, file=xl.fn, sheetName = "C stratified matrix", append = TRUE, row.names=FALSE)
+
 ```
 
 The xlsx package in R was giving a memory error when writing an Excel file, so I am outputting CSV files and assembling them in an Excel file manually instead.

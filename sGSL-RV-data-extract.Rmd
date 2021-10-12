@@ -188,6 +188,9 @@ y<-adjust(y,x)
 ## output matrix, called C in Benoit & Swain
 C.matrix <- matrix(NA, nr=length(sp.codes), nc=length(yrs), dimnames=list(species=sp.codes, year=yrs))
 C.df <- expand.grid(year=yrs, species=sp.codes, normalised=NA)
+## same matrix, but not normalised to 0-1
+C.stratified.matrix <- matrix(NA, nr=length(sp.codes), nc=length(yrs), dimnames=list(species=sp.codes, year=yrs))
+
 
 for(i in 1:length(sp.codes)){
   s <- sp.codes[i]
@@ -230,8 +233,8 @@ stratified.number.df <- smean(z, "number.caught", by=c("year"))
 matrix.row <- (stratified.number.df$mean - min(stratified.number.df$mean)) / (max(stratified.number.df$mean) - min(stratified.number.df$mean))
 
 C.matrix[i,] <- matrix.row
-
 C.df[C.df$species==s,"normalised"] <- matrix.row
+C.stratified.matrix[i,] <- stratified.number.df$mean
 }
 
 # visualize C matrix using ggplot
@@ -270,9 +273,12 @@ csv.fn5 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-C-
 
 write.csv(C.matrix, file=csv.fn5)
 
+csv.fn6 <- paste0("sGSL-RV-data-for-Elise-", format(Sys.time(), "%Y-%m-%d"),"-C-stratified-matrix.csv")
+write.csv(C.stratified.matrix, file=csv.fn6)
+
 ## create a backbone Excel file to copy and paste the CSV files into
 library(xlsx)
-xl.fn <- "sGSL-RV-data-for-Elise-2021-10-07.xlsx"
+xl.fn <- "sGSL-RV-data-for-Elise-2021-10-12.xlsx"
 t.df <- data.frame(x=1)
 write.xlsx(t.df, file=xl.fn, sheetName = "Species list")
 write.xlsx(t.df, file=xl.fn, sheetName = "Strata statisitics", append = TRUE, row.names=FALSE)

@@ -1,0 +1,77 @@
+---
+title: "Notes on comparing the dataset from Hugues to what I obtain from the RV database"
+author: "Daniel Ricard"
+date: '`r paste0("Last modified: ", Sys.time())`'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gulf)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(worms)
+```
+
+## read in the Excel spreadsheet from Hugues
+
+```{r}
+library(readxl)
+xl.fn <- "from-Hugues-Benoit-abundundance_Crosstab_edited.xls"
+hugues.df1 <- read_xls(xl.fn, sheet=1)
+hugues.df2 <- read_xls(xl.fn, sheet=2, n_max = 36)
+
+hugues.to.compare <- hugues.df2
+## recode some species to match the data provided by dan
+names(hugues.to.compare)[34] <- '880'
+names(hugues.to.compare)[43] <- '503'
+names(hugues.to.compare)[51] <- '598'
+names(hugues.to.compare)[53] <- '712'
+hugues.to.compare <- as.data.frame(hugues.to.compare)
+```
+
+## read in the CSV file from Dan
+```{r}
+csv.fn <- "sGSL-RV-data-for-Elise-2021-10-12-C-stratified-matrix.csv"
+t.df <- read.csv(csv.fn)
+dan.df <- as.data.frame(t(t.df[,2:51]))
+names(dan.df) <- as.character(t.df[,1])
+dan.df$year <- 1971:2020
+species <- as.character(names(hugues.to.compare)[2:53])
+dan.to.compare <- dan.df[,c("year",species)]
+
+setdiff(names(hugues.to.compare)[2:53], names(dan.df)[1:52])
+
+dim(dan.to.compare)
+dim(hugues.to.compare)
+```
+
+## compare the stratified estimates from Hugues and Dan
+
+```{r}
+## keep only the same years
+dan.to.compare <- dan.to.compare[1:35,]
+dim(dan.to.compare) == dim(hugues.to.compare)
+
+names(dan.to.compare) == names(hugues.to.compare)
+
+dan.matrix <- as.matrix(dan.to.compare[,2:52]) 
+hugues.matrix <- as.matrix(hugues.to.compare[,2:52])
+
+difference <- dan.matrix - hugues.matrix
+range(difference)
+
+for(i in 1:length(species))
+{
+  
+  plot(dan.to.compare[,i+1],
+       hugues.to.compare[,i+1],
+       main=paste0("Species ", species[i], "-", species.str(species[i])), 
+       pch=19,
+       xlab="Dan estimate", ylab="Hugues estimate")
+  abline(a=0,b=1)
+}
+
+```

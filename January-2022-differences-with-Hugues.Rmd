@@ -69,8 +69,12 @@ for(i in 1:length(species))
   plot(dan.to.compare[,i+1],
        hugues.to.compare[,i+1],
        main=paste0("Species ", species[i], "-", species.str(species[i])), 
-       pch=19,
+       type='n',
        xlab="Dan estimate", ylab="Hugues estimate")
+  text(dan.to.compare[,i+1],
+       hugues.to.compare[,i+1],
+       dan.to.compare[,1]
+       )
   abline(a=0,b=1)
 }
 

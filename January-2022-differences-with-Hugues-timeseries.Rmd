@@ -1,0 +1,62 @@
+---
+title: "Further otes on comparing indices"
+author: "Daniel Ricard"
+date: '`r paste0("Last modified: ", Sys.time())`'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gulf)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(worms)
+```
+
+## read in stratified estimates from Hugues and Dan
+
+```{r}
+csv.fn <- "sGSL RV survey indices_fish_Jan2022.csv"
+hugues.df <- read.csv(csv.fn)
+
+## for group of species, use the same species codes
+hugues.df[which(hugues.df$species==306), "species"] <- '880'
+hugues.df[which(hugues.df$species==500), "species"] <- '503'
+hugues.df[which(hugues.df$species==642), "species"] <- '598'
+hugues.df[which(hugues.df$species==713), "species"] <- '712'
+
+
+csv.fn <- "sGSL-RV-data-for-Elise-2021-10-12-C-stratified-matrix.csv"
+t.df <- read.csv(csv.fn)
+dan.df <- as.data.frame(t(t.df[,2:51]))
+names(dan.df) <- as.character(t.df[,1])
+dan.df$year <- 1971:2020
+
+## compare cod
+hugues.cod <- hugues.df[which(hugues.df$species==10),]
+dan.cod <- dan.df[,c(53,11)]
+
+plot(hugues.cod$year, hugues.cod$avgcatch, type='b', pch=19)
+lines(dan.cod$year, dan.cod$`10`, type='b', col="red", pch=19)
+```
+## time-series for all species
+```{r}
+species <- as.numeric(names(dan.df)[1:52])
+
+setdiff(species, unique(hugues.df$species))
+
+for(i in 1:length(species))
+{
+  hugues.this.sp <- hugues.df[which(hugues.df$species==species[i]),]
+  plot.tit <- paste0(species.str(species[i]), " - species code ", species[i])
+  my.ylim <- c(0,max(max(hugues.this.sp$avgcatch), max(dan.df[,i])))
+  plot(hugues.this.sp$year, hugues.this.sp$avgcatch, type='b', pch=19, ylim=my.ylim, main=plot.tit)
+  lines(dan.df$year, dan.df[,i], type='b', col="red", pch=19)
+  legend('topleft', c("SAS","R"), col=c("black","red"), lty=1, pch=19)
+  
+}
+
+```
+
